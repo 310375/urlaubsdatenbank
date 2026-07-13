@@ -321,6 +321,11 @@ function renderUrlaube(records) {
       ${f.Adresse ? `<div class="notes">🏠 ${escapeHtml(f.Adresse)}</div>` : ''}
       ${f.Fazit ? `<div class="notes"><strong>Fazit:</strong> ${escapeHtml(f.Fazit)}</div>` : ''}
       ${f['Naechstes Mal anders'] ? `<div class="notes"><strong>Naechstes Mal anders:</strong> ${escapeHtml(f['Naechstes Mal anders'])}</div>` : ''}
+      <div class="meta-row">
+        ${f.Entfernung ? `<span>${escapeHtml(f.Entfernung)}</span>` : ''}
+        ${f['Maps-Link'] ? `<a href="${escapeHtml(f['Maps-Link'])}" target="_blank" onclick="event.stopPropagation()">Karte öffnen ↗</a>` : ''}
+        ${f['Route von Zuhause'] ? `<a href="${escapeHtml(f['Route von Zuhause'])}" target="_blank" onclick="event.stopPropagation()">Route ab Selsingen ↗</a>` : ''}
+      </div>
     </div>`;
   }).join('');
 }
