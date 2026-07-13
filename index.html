@@ -174,7 +174,10 @@
         <h1 id="tripTitle">Urlaubsdatenbank</h1>
         <p id="tripSub">Lade...</p>
       </div>
-      <button class="reset-btn" onclick="resetCredentials()" title="Zugangsdaten zuruecksetzen">⚙</button>
+      <div style="display:flex">
+        <button class="reset-btn" onclick="init()" title="Aktualisieren" style="margin-right:6px">🔄</button>
+        <button class="reset-btn" onclick="resetCredentials()" title="Zugangsdaten zuruecksetzen">⚙</button>
+      </div>
     </div>
   </header>
 
@@ -344,8 +347,7 @@ function renderUrlaube(records) {
     </div>`;
   }).join('');
 
-  el.innerHTML = `<div class="map-loading" id="overviewMapLoading">Karte wird geladen...</div>` + cardsHtml;
-  loadOverviewMap(sorted);
+  el.innerHTML = cardsHtml;
 }
 
 const GEOCODE_CACHE_KEY = 'urlaubsdb_geocode_cache';
@@ -444,8 +446,9 @@ function renderOrte(records, urlaube) {
       </div>
     </div>`;
   }).join('');
-  el.innerHTML = chipsHtml + `<div id="orteCards">${cardsHtml}</div>`;
+  el.innerHTML = `<div class="map-loading" id="overviewMapLoading">Karte wird geladen...</div>` + chipsHtml + `<div id="orteCards">${cardsHtml}</div>`;
   wireChips(el, 'orteCards');
+  loadOverviewMap(urlaube);
 }
 
 function renderRestaurants(records, urlaube) {
