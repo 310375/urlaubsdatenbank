@@ -183,7 +183,7 @@
 
   <nav id="tabs">
     <div class="tab active" data-target="urlaube">🗺️ Urlaube</div>
-    <div class="tab" data-target="orte">📍 Orte</div>
+    <div class="tab" data-target="orte">📍 Ausflugsziele</div>
     <div class="tab" data-target="restaurants">🍴 Restaurants</div>
     <div class="tab" data-target="einkaufen">🛒 Einkaufen</div>
     <div class="tab" data-target="abendessen">🍽️ Kochen</div>
@@ -423,7 +423,7 @@ function tripName(urlaubLinks, urlaube) {
 
 function renderOrte(records, urlaube) {
   const el = document.getElementById('panel-orte');
-  if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Orte erfasst.</div>'; return; }
+  if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Ausflugsziele erfasst.</div>'; return; }
   records = records.slice().sort((a, b) => (b.fields.Bewertung || 0) - (a.fields.Bewertung || 0));
   const cats = [...new Set(records.map(r => r.fields.Kategorie).filter(Boolean))];
   const chipsHtml = `<div class="chips"><div class="chip active" data-filter="all">Alle</div>${
@@ -446,9 +446,8 @@ function renderOrte(records, urlaube) {
       </div>
     </div>`;
   }).join('');
-  el.innerHTML = `<div class="map-loading" id="overviewMapLoading">Karte wird geladen...</div>` + chipsHtml + `<div id="orteCards">${cardsHtml}</div>`;
+  el.innerHTML = chipsHtml + `<div id="orteCards">${cardsHtml}</div>`;
   wireChips(el, 'orteCards');
-  loadOverviewMap(urlaube);
 }
 
 function renderRestaurants(records, urlaube) {
