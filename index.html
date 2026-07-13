@@ -36,6 +36,11 @@
   }
   header h1 { font-size: 17px; font-weight: 700; margin: 0 0 2px; color: #fff; }
   header p { font-size: 12px; color: #C7D6DE; margin: 0; }
+  .header-row { display: flex; justify-content: space-between; align-items: flex-start; }
+  .reset-btn {
+    background: rgba(255,255,255,0.12); border: none; color: #fff;
+    width: 30px; height: 30px; border-radius: 50%; font-size: 15px; cursor: pointer; flex-shrink: 0;
+  }
   nav {
     display: flex; gap: 6px; overflow-x: auto;
     padding: 12px 12px 12px; background: var(--sea); flex-shrink: 0;
@@ -129,8 +134,13 @@
 
 <div id="app" style="display:none">
   <header>
-    <h1 id="tripTitle">Urlaubsdatenbank</h1>
-    <p id="tripSub">Lade...</p>
+    <div class="header-row">
+      <div>
+        <h1 id="tripTitle">Urlaubsdatenbank</h1>
+        <p id="tripSub">Lade...</p>
+      </div>
+      <button class="reset-btn" onclick="resetCredentials()" title="Zugangsdaten zuruecksetzen">⚙</button>
+    </div>
   </header>
 
   <nav id="tabs">
@@ -155,6 +165,14 @@ const CRED_KEY = 'urlaubsdb_credentials';
 
 function getCredentials() {
   try { return JSON.parse(localStorage.getItem(CRED_KEY)); } catch (e) { return null; }
+}
+
+function resetCredentials() {
+  localStorage.removeItem(CRED_KEY);
+  document.getElementById('setupToken').value = '';
+  document.getElementById('setupBaseId').value = '';
+  document.getElementById('setupScreen').style.display = 'block';
+  document.getElementById('app').style.display = 'none';
 }
 
 function saveCredentials() {
@@ -241,8 +259,12 @@ async function init() {
     }
   } catch (err) {
     document.getElementById('tripSub').textContent = 'Fehler beim Laden';
+    let hint = 'Pruefe Token und Base ID.';
+    if (String(err.message).includes('401')) {
+      hint = 'HTTP 401 bedeutet: Token oder Base ID sind falsch, vertauscht, oder der Token wurde nicht korrekt kopiert. Auf das Zahnrad-Symbol oben rechts tippen, um sie neu einzutragen.';
+    }
     document.querySelectorAll('.panel').forEach(p => {
-      p.innerHTML = `<div class="empty">Fehler: ${escapeHtml(err.message)}<br>Pruefe Token und Base ID (Zahnrad-Reset unten).</div>`;
+      p.innerHTML = `<div class="empty">Fehler: ${escapeHtml(err.message)}<br><br>${hint}</div>`;
     });
   }
 }
