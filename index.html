@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>Urlaubsdatenbank</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0F1A20;
+    --card: #182731;
+    --text: #EAF1F4;
+    --muted: #96AAB3;
+    --border: #2A3B44;
+    --accent: #85B7EB;
+    --sea: #16425B;
+    --ok: #8FB876;
+    --ok-light: #233225;
+    --err: #E38181;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--sea);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  body { display: flex; flex-direction: column; }
+  header {
+    padding: 16px 16px 10px;
+    background: var(--sea);
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 17px; font-weight: 700; margin: 0 0 2px; color: #fff; }
+  header p { font-size: 12px; color: #C7D6DE; margin: 0; }
+  nav {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding: 12px 12px 12px; background: var(--sea); flex-shrink: 0;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  .tab {
+    flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    background: rgba(255,255,255,0.08); color: #C7D6DE; border: 1px solid transparent;
+    cursor: pointer; white-space: nowrap; user-select: none; transition: background .15s, color .15s;
+  }
+  .tab.active { background: #fff; color: var(--sea); }
+  main {
+    flex: 1; min-height: 0; overflow-y: auto; background: var(--bg);
+    border-radius: 16px 16px 0 0; padding: 16px; padding-bottom: 60px;
+  }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 12px;
+  }
+  .card-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .card-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .badge {
+    font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 8px;
+    background: rgba(133,183,235,0.15); color: var(--accent);
+  }
+  .badge.gold { background: rgba(250,199,117,0.15); color: #FAC775; }
+  .badge.green { background: var(--ok-light); color: var(--ok); }
+  .stars { color: #FAC775; letter-spacing: 1px; font-size: 13px; }
+  .notes { font-size: 13px; line-height: 1.5; color: var(--text); margin-top: 4px; }
+  .meta-row { font-size: 12px; color: var(--muted); margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-row a { color: var(--accent); text-decoration: none; }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip {
+    font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+  }
+  .chip.active { background: var(--accent); color: #08131A; border-color: var(--accent); }
+
+  .cat-label {
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); margin: 18px 0 8px;
+  }
+  .item {
+    display: flex; align-items: center; gap: 10px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 6px;
+    cursor: pointer;
+  }
+  .item.done { background: var(--ok-light); border-color: var(--ok-light); }
+  .item input { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
+  .item-title { font-size: 14px; flex: 1; }
+  .item-title.done { text-decoration: line-through; color: var(--muted); }
+  .person-tag { font-size: 11px; color: var(--muted); }
+
+  .empty { text-align: center; color: var(--muted); font-size: 13.5px; padding: 40px 20px; }
+  .loading { text-align: center; color: var(--muted); font-size: 13.5px; padding: 40px 20px; }
+
+  .setup { max-width: 400px; margin: 60px auto; padding: 0 20px; }
+  .setup h2 { font-size: 18px; margin-bottom: 8px; }
+  .setup p { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 20px; }
+  .setup label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .setup input {
+    width: 100%; background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 11px 13px; border-radius: 10px; font-size: 14px; margin-bottom: 16px;
+  }
+  .setup button {
+    width: 100%; background: var(--accent); color: #08131A; border: none;
+    padding: 13px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  .setup .err { color: var(--err); font-size: 12.5px; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<div id="setupScreen" class="setup" style="display:none">
+  <h2>Zugang einrichten</h2>
+  <p>Einmalig pro Gerät: Trage deinen Airtable-Lese-Token und die Base ID ein. Beides wird nur lokal in diesem Browser gespeichert, nirgendwo sonst.</p>
+  <label>Personal Access Token (nur lesend)</label>
+  <input id="setupToken" type="password" placeholder="pat...">
+  <label>Base ID</label>
+  <input id="setupBaseId" type="text" placeholder="appXXXXXXXXXXXXXX">
+  <button onclick="saveCredentials()">Speichern & laden</button>
+  <div class="err" id="setupErr"></div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1 id="tripTitle">Urlaubsdatenbank</h1>
+    <p id="tripSub">Lade...</p>
+  </header>
+
+  <nav id="tabs">
+    <div class="tab active" data-target="urlaube">🗺️ Urlaube</div>
+    <div class="tab" data-target="orte">📍 Orte</div>
+    <div class="tab" data-target="restaurants">🍴 Restaurants</div>
+    <div class="tab" data-target="einkaufen">🛒 Einkaufen</div>
+    <div class="tab" data-target="packliste">🧳 Packliste</div>
+  </nav>
+
+  <main id="main">
+    <div id="panel-urlaube" class="panel active"><div class="loading">Lade...</div></div>
+    <div id="panel-orte" class="panel"><div class="loading">Lade...</div></div>
+    <div id="panel-restaurants" class="panel"><div class="loading">Lade...</div></div>
+    <div id="panel-einkaufen" class="panel"><div class="loading">Lade...</div></div>
+    <div id="panel-packliste" class="panel"><div class="loading">Lade...</div></div>
+  </main>
+</div>
+
+<script>
+const CRED_KEY = 'urlaubsdb_credentials';
+
+function getCredentials() {
+  try { return JSON.parse(localStorage.getItem(CRED_KEY)); } catch (e) { return null; }
+}
+
+function saveCredentials() {
+  const token = document.getElementById('setupToken').value.trim();
+  let baseId = document.getElementById('setupBaseId').value.trim();
+  const errEl = document.getElementById('setupErr');
+  errEl.textContent = '';
+
+  const urlMatch = baseId.match(/airtable\.com\/([^/?#\s]+)/);
+  if (urlMatch) baseId = urlMatch[1];
+  baseId = baseId.split(/[/?#\s]/)[0];
+
+  if (!token || !baseId) {
+    errEl.textContent = 'Bitte beide Felder ausfuellen.';
+    return;
+  }
+  localStorage.setItem(CRED_KEY, JSON.stringify({ token, baseId }));
+  init();
+}
+
+async function airtableGet(baseId, token, table, offset) {
+  let url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?pageSize=100`;
+  if (offset) url += `&offset=${offset}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`${table}: HTTP ${res.status}`);
+  return res.json();
+}
+
+async function airtableGetAll(baseId, token, table) {
+  let all = [];
+  let offset = null;
+  do {
+    const data = await airtableGet(baseId, token, table, offset);
+    all = all.concat(data.records);
+    offset = data.offset;
+  } while (offset);
+  return all;
+}
+
+function starString(n) {
+  n = Math.round(n || 0);
+  return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
+
+function escapeHtml(str) {
+  if (str === undefined || str === null) return '';
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function init() {
+  const creds = getCredentials();
+  if (!creds) {
+    document.getElementById('setupScreen').style.display = 'block';
+    document.getElementById('app').style.display = 'none';
+    return;
+  }
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  const { token, baseId } = creds;
+
+  try {
+    const [urlaube, orte, restaurants, einkaufen, packliste] = await Promise.all([
+      airtableGetAll(baseId, token, 'Urlaube'),
+      airtableGetAll(baseId, token, 'Orte & Aktivitaeten'),
+      airtableGetAll(baseId, token, 'Restaurants'),
+      airtableGetAll(baseId, token, 'Einkaufen'),
+      airtableGetAll(baseId, token, 'Packliste-Vorlage')
+    ]);
+
+    renderUrlaube(urlaube);
+    renderOrte(orte, urlaube);
+    renderRestaurants(restaurants, urlaube);
+    renderEinkaufen(einkaufen);
+    renderPackliste(packliste);
+
+    const latest = urlaube[urlaube.length - 1];
+    if (latest) {
+      document.getElementById('tripTitle').textContent = latest.fields.Ort || 'Urlaubsdatenbank';
+      const jahr = latest.fields.Jahr || '';
+      document.getElementById('tripSub').textContent = `${urlaube.length} Urlaub(e) in der Datenbank · zuletzt ${jahr}`;
+    } else {
+      document.getElementById('tripSub').textContent = `${urlaube.length} Urlaub(e) in der Datenbank`;
+    }
+  } catch (err) {
+    document.getElementById('tripSub').textContent = 'Fehler beim Laden';
+    document.querySelectorAll('.panel').forEach(p => {
+      p.innerHTML = `<div class="empty">Fehler: ${escapeHtml(err.message)}<br>Pruefe Token und Base ID (Zahnrad-Reset unten).</div>`;
+    });
+  }
+}
+
+function renderUrlaube(records) {
+  const el = document.getElementById('panel-urlaube');
+  if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Urlaube erfasst.</div>'; return; }
+  el.innerHTML = records.slice().reverse().map(r => {
+    const f = r.fields;
+    return `<div class="card">
+      <div class="card-title">${escapeHtml(f.Ort)} ${f.Jahr ? '· ' + f.Jahr : ''}</div>
+      <div class="card-sub">${escapeHtml(f.Start || '')} ${f.Ende ? '– ' + escapeHtml(f.Ende) : ''} ${f.Land ? '· ' + escapeHtml(f.Land) : ''}</div>
+      ${f.Fazit ? `<div class="notes"><strong>Fazit:</strong> ${escapeHtml(f.Fazit)}</div>` : ''}
+      ${f['Naechstes Mal anders'] ? `<div class="notes"><strong>Naechstes Mal anders:</strong> ${escapeHtml(f['Naechstes Mal anders'])}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function tripName(urlaubLinks, urlaube) {
+  if (!urlaubLinks || !urlaubLinks.length) return '';
+  const id = urlaubLinks[0];
+  const trip = urlaube.find(u => u.id === id);
+  return trip ? trip.fields.Ort : '';
+}
+
+function renderOrte(records, urlaube) {
+  const el = document.getElementById('panel-orte');
+  if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Orte erfasst.</div>'; return; }
+  const cats = [...new Set(records.map(r => r.fields.Kategorie).filter(Boolean))];
+  const chipsHtml = `<div class="chips"><div class="chip active" data-filter="all">Alle</div>${
+    cats.map(c => `<div class="chip" data-filter="${escapeHtml(c)}">${escapeHtml(c)}</div>`).join('')
+  }</div>`;
+  const cardsHtml = records.map(r => {
+    const f = r.fields;
+    return `<div class="card" data-cat="${escapeHtml(f.Kategorie || '')}">
+      <div class="card-title">${escapeHtml(f.Name)}</div>
+      <div class="badges">
+        ${f.Kategorie ? `<span class="badge">${escapeHtml(f.Kategorie)}</span>` : ''}
+        ${f.Bewertung ? `<span class="stars">${starString(f.Bewertung)}</span>` : ''}
+        ${f.Rabatt ? `<span class="badge gold">${escapeHtml(f.Rabatt)}</span>` : ''}
+      </div>
+      ${f.Notizen ? `<div class="notes">${escapeHtml(f.Notizen)}</div>` : ''}
+      <div class="meta-row">
+        ${tripName(f.Urlaub, urlaube) ? `<span>${escapeHtml(tripName(f.Urlaub, urlaube))}</span>` : ''}
+        ${f['Maps-Link'] ? `<a href="${escapeHtml(f['Maps-Link'])}" target="_blank">Karte öffnen ↗</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = chipsHtml + `<div id="orteCards">${cardsHtml}</div>`;
+  wireChips(el, 'orteCards');
+}
+
+function renderRestaurants(records, urlaube) {
+  const el = document.getElementById('panel-restaurants');
+  if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Restaurants erfasst.</div>'; return; }
+  const cuisines = [...new Set(records.map(r => r.fields.Kueche).filter(Boolean))];
+  const chipsHtml = `<div class="chips"><div class="chip active" data-filter="all">Alle</div>${
+    cuisines.map(c => `<div class="chip" data-filter="${escapeHtml(c)}">${escapeHtml(c)}</div>`).join('')
+  }</div>`;
+  const cardsHtml = records.map(r => {
+    const f = r.fields;
+    return `<div class="card" data-cat="${escapeHtml(f.Kueche || '')}">
+      <div class="card-title">${escapeHtml(f.Name)}</div>
+      <div class="badges">
+        ${f.Kueche ? `<span class="badge">${escapeHtml(f.Kueche)}</span>` : ''}
+        ${f.Preisklasse ? `<span class="badge">${escapeHtml(f.Preisklasse)}</span>` : ''}
+        ${f.Bewertung ? `<span class="stars">${starString(f.Bewertung)}</span>` : ''}
+        ${f['Wieder besuchen'] ? `<span class="badge green">Wieder besuchen</span>` : ''}
+      </div>
+      ${f.Notizen ? `<div class="notes">${escapeHtml(f.Notizen)}</div>` : ''}
+      <div class="meta-row">
+        ${tripName(f.Urlaub, urlaube) ? `<span>${escapeHtml(tripName(f.Urlaub, urlaube))}</span>` : ''}
+        ${f['Maps-Link'] ? `<a href="${escapeHtml(f['Maps-Link'])}" target="_blank">Karte öffnen ↗</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = chipsHtml + `<div id="restCards">${cardsHtml}</div>`;
+  wireChips(el, 'restCards');
+}
+
+function renderEinkaufen(records) {
+  const el = document.getElementById('panel-einkaufen');
+  if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Einkaufsquellen erfasst.</div>'; return; }
+  const sorted = records.slice().sort((a, b) => (b.fields.Favorit ? 1 : 0) - (a.fields.Favorit ? 1 : 0));
+  el.innerHTML = sorted.map(r => {
+    const f = r.fields;
+    return `<div class="card">
+      <div class="card-title">${escapeHtml(f.Name)} ${f.Favorit ? '⭐' : ''}</div>
+      <div class="badges">
+        ${f.Typ ? `<span class="badge">${escapeHtml(f.Typ)}</span>` : ''}
+        ${f.Bewertung ? `<span class="stars">${starString(f.Bewertung)}</span>` : ''}
+      </div>
+      ${f.Adresse ? `<div class="notes">${escapeHtml(f.Adresse)}</div>` : ''}
+      ${f.Notizen ? `<div class="notes">${escapeHtml(f.Notizen)}</div>` : ''}
+      <div class="meta-row">
+        ${f.Oeffnungszeiten ? `<span>${escapeHtml(f.Oeffnungszeiten)}</span>` : ''}
+        ${f.Telefon ? `<a href="tel:${escapeHtml(f.Telefon)}">${escapeHtml(f.Telefon)}</a>` : ''}
+        ${f['Maps-Link'] ? `<a href="${escapeHtml(f['Maps-Link'])}" target="_blank">Karte öffnen ↗</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderPackliste(records) {
+  const el = document.getElementById('panel-packliste');
+  if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Packliste erfasst.</div>'; return; }
+
+  const STORAGE_KEY = 'urlaubsdb_packliste_checked';
+  let checked = {};
+  try { checked = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) {}
+
+  const groups = {};
+  records.forEach(r => {
+    const kat = r.fields.Kategorie || 'Sonstiges';
+    if (!groups[kat]) groups[kat] = [];
+    groups[kat].push(r);
+  });
+
+  let html = '';
+  Object.keys(groups).sort().forEach(kat => {
+    html += `<div class="cat-label">${escapeHtml(kat)}</div>`;
+    groups[kat].forEach(r => {
+      const f = r.fields;
+      const isChecked = !!checked[r.id];
+      html += `<label class="item ${isChecked ? 'done' : ''}" data-id="${r.id}">
+        <input type="checkbox" ${isChecked ? 'checked' : ''}>
+        <span class="item-title ${isChecked ? 'done' : ''}">${escapeHtml(f.Artikel)}</span>
+        ${f.Person && f.Person !== 'Allgemein' ? `<span class="person-tag">${escapeHtml(f.Person)}</span>` : ''}
+      </label>`;
+    });
+  });
+  el.innerHTML = html;
+
+  el.querySelectorAll('.item').forEach(item => {
+    const cb = item.querySelector('input');
+    cb.addEventListener('change', () => {
+      checked[item.dataset.id] = cb.checked;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(checked)); } catch (e) {}
+      item.classList.toggle('done', cb.checked);
+      item.querySelector('.item-title').classList.toggle('done', cb.checked);
+    });
+  });
+}
+
+function wireChips(container, targetId) {
+  const chips = container.querySelectorAll('.chip');
+  const cards = document.getElementById(targetId).querySelectorAll('.card');
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      const f = chip.dataset.filter;
+      cards.forEach(card => {
+        card.style.display = (f === 'all' || card.dataset.cat === f) ? '' : 'none';
+      });
+    });
+  });
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + tab.dataset.target).classList.add('active');
+  });
+});
+
+init();
+</script>
+
+</body>
+</html>
