@@ -424,7 +424,11 @@ function tripName(urlaubLinks, urlaube) {
 function renderOrte(records, urlaube) {
   const el = document.getElementById('panel-orte');
   if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Ausflugsziele erfasst.</div>'; return; }
-  records = records.slice().sort((a, b) => (b.fields.Bewertung || 0) - (a.fields.Bewertung || 0));
+  records = records.slice().sort((a, b) => {
+    const distA = parseInt((a.fields.Entfernung || '').replace(/\D+/g, '')) || 99999;
+    const distB = parseInt((b.fields.Entfernung || '').replace(/\D+/g, '')) || 99999;
+    return distA - distB;
+  });
   const cats = [...new Set(records.map(r => r.fields.Kategorie).filter(Boolean))];
   const chipsHtml = `<div class="chips"><div class="chip active" data-filter="all">Alle</div>${
     cats.map(c => `<div class="chip" data-filter="${escapeHtml(c)}">${escapeHtml(c)}</div>`).join('')
