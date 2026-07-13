@@ -148,6 +148,7 @@
     <div class="tab" data-target="orte">📍 Orte</div>
     <div class="tab" data-target="restaurants">🍴 Restaurants</div>
     <div class="tab" data-target="einkaufen">🛒 Einkaufen</div>
+    <div class="tab" data-target="abendessen">🍽️ Kochen</div>
     <div class="tab" data-target="packliste">🧳 Packliste</div>
   </nav>
 
@@ -156,6 +157,7 @@
     <div id="panel-orte" class="panel"><div class="loading">Lade...</div></div>
     <div id="panel-restaurants" class="panel"><div class="loading">Lade...</div></div>
     <div id="panel-einkaufen" class="panel"><div class="loading">Lade...</div></div>
+    <div id="panel-abendessen" class="panel"><div class="loading">Lade...</div></div>
     <div id="panel-packliste" class="panel"><div class="loading">Lade...</div></div>
   </main>
 </div>
@@ -235,11 +237,12 @@ async function init() {
   const { token, baseId } = creds;
 
   try {
-    const [urlaube, orte, restaurants, einkaufen, packliste] = await Promise.all([
+    const [urlaube, orte, restaurants, einkaufen, abendessen, packliste] = await Promise.all([
       airtableGetAll(baseId, token, 'Urlaube'),
       airtableGetAll(baseId, token, 'Orte & Aktivitaeten'),
       airtableGetAll(baseId, token, 'Restaurants'),
       airtableGetAll(baseId, token, 'Einkaufen'),
+      airtableGetAll(baseId, token, 'Abendessen-Ideen'),
       airtableGetAll(baseId, token, 'Packliste-Vorlage')
     ]);
 
@@ -247,6 +250,7 @@ async function init() {
     renderOrte(orte, urlaube);
     renderRestaurants(restaurants, urlaube);
     renderEinkaufen(einkaufen);
+    renderAbendessen(abendessen);
     renderPackliste(packliste);
 
     const latest = urlaube[urlaube.length - 1];
@@ -337,6 +341,7 @@ function renderRestaurants(records, urlaube) {
       ${f.Notizen ? `<div class="notes">${escapeHtml(f.Notizen)}</div>` : ''}
       <div class="meta-row">
         ${tripName(f.Urlaub, urlaube) ? `<span>${escapeHtml(tripName(f.Urlaub, urlaube))}</span>` : ''}
+        ${f.Entfernung ? `<span>${escapeHtml(f.Entfernung)}</span>` : ''}
         ${f['Maps-Link'] ? `<a href="${escapeHtml(f['Maps-Link'])}" target="_blank">Karte öffnen ↗</a>` : ''}
       </div>
     </div>`;
@@ -361,6 +366,7 @@ function renderEinkaufen(records) {
       ${f.Notizen ? `<div class="notes">${escapeHtml(f.Notizen)}</div>` : ''}
       <div class="meta-row">
         ${f.Oeffnungszeiten ? `<span>${escapeHtml(f.Oeffnungszeiten)}</span>` : ''}
+        ${f.Entfernung ? `<span>${escapeHtml(f.Entfernung)}</span>` : ''}
         ${f.Telefon ? `<a href="tel:${escapeHtml(f.Telefon)}">${escapeHtml(f.Telefon)}</a>` : ''}
         ${f['Maps-Link'] ? `<a href="${escapeHtml(f['Maps-Link'])}" target="_blank">Karte öffnen ↗</a>` : ''}
       </div>
@@ -409,6 +415,33 @@ function renderPackliste(records) {
   });
 }
 
+function renderAbendessen(records) {
+  const el = document.getElementById('panel-abendessen');
+  if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Abendessen-Ideen erfasst.</div>'; return; }
+  const cats = [...new Set(records.flatMap(r => r.fields.Kategorien || []))];
+  const chipsHtml = `<div class="chips"><div class="chip active" data-filter="all">Alle</div>${
+    cats.map(c => `<div class="chip" data-filter="${escapeHtml(c)}">${escapeHtml(c)}</div>`).join('')
+  }</div>`;
+  const cardsHtml = records.map(r => {
+    const f = r.fields;
+    const catList = (f.Kategorien || []).join('||');
+    return `<div class="card" data-cat="${escapeHtml(catList)}">
+      <div class="card-title">${escapeHtml(f.Titel)}</div>
+      <div class="badges">
+        ${(f.Kategorien || []).map(c => `<span class="badge">${escapeHtml(c)}</span>`).join('')}
+      </div>
+      ${f.Beschreibung ? `<div class="notes">${escapeHtml(f.Beschreibung)}</div>` : ''}
+      <div class="meta-row">
+        ${f.Zeit ? `<span>⏱ ${escapeHtml(f.Zeit)}</span>` : ''}
+        ${f.Schwierigkeit ? `<span>👨‍🍳 ${escapeHtml(f.Schwierigkeit)}</span>` : ''}
+      </div>
+      ${f.Einkaufsquellen ? `<div class="notes"><strong>Einkaufen:</strong> ${escapeHtml(f.Einkaufsquellen)}</div>` : ''}
+    </div>`;
+  }).join('');
+  el.innerHTML = chipsHtml + `<div id="abendessenCards">${cardsHtml}</div>`;
+  wireChips(el, 'abendessenCards');
+}
+
 function wireChips(container, targetId) {
   const chips = container.querySelectorAll('.chip');
   const cards = document.getElementById(targetId).querySelectorAll('.card');
@@ -418,7 +451,8 @@ function wireChips(container, targetId) {
       chip.classList.add('active');
       const f = chip.dataset.filter;
       cards.forEach(card => {
-        card.style.display = (f === 'all' || card.dataset.cat === f) ? '' : 'none';
+        const cardCats = card.dataset.cat.split('||');
+        card.style.display = (f === 'all' || cardCats.includes(f)) ? '' : 'none';
       });
     });
   });
