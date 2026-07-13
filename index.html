@@ -73,6 +73,18 @@
     background: var(--card); border: 1px solid var(--border); border-radius: 14px;
     padding: 14px 16px; margin-bottom: 12px;
   }
+  .card.trip-card { cursor: pointer; transition: border-color .15s, background .15s; }
+  .card.trip-card:active { background: #1F2E38; }
+  .card.trip-card.selected { border-color: var(--accent); background: #1B2F3D; }
+  .filter-banner {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--card); border: 1px solid var(--accent); border-radius: 10px;
+    padding: 8px 12px; margin-bottom: 12px; font-size: 12.5px; color: var(--accent);
+  }
+  .filter-banner button {
+    background: none; border: none; color: var(--accent); font-size: 12.5px;
+    font-weight: 700; cursor: pointer; padding: 2px 6px;
+  }
   .card-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
   .card-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
   .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -265,11 +277,18 @@ async function init() {
     renderAbendessen(abendessen);
     renderPackliste(packliste);
 
-    const latest = urlaube[urlaube.length - 1];
-    if (latest) {
-      document.getElementById('tripTitle').textContent = latest.fields.Ort || 'Urlaubsdatenbank';
-      const jahr = latest.fields.Jahr || '';
-      document.getElementById('tripSub').textContent = `${urlaube.length} Urlaub(e) in der Datenbank · zuletzt ${jahr}`;
+    const sortedTrips = urlaube.slice().sort((a, b) => {
+      const dateA = a.fields.Start || String(a.fields.Jahr || '0');
+      const dateB = b.fields.Start || String(b.fields.Jahr || '0');
+      return dateA.localeCompare(dateB);
+    });
+    const highlight = sortedTrips[sortedTrips.length - 1];
+    if (highlight) {
+      document.getElementById('tripTitle').textContent = highlight.fields.Ort || 'Urlaubsdatenbank';
+      const jahr = highlight.fields.Jahr || '';
+      const today = new Date().toISOString().slice(0, 10);
+      const label = (highlight.fields.Start && highlight.fields.Start > today) ? 'naechster' : 'zuletzt';
+      document.getElementById('tripSub').textContent = `${urlaube.length} Urlaub(e) in der Datenbank · ${label} ${jahr}`;
     } else {
       document.getElementById('tripSub').textContent = `${urlaube.length} Urlaub(e) in der Datenbank`;
     }
@@ -288,11 +307,18 @@ async function init() {
 function renderUrlaube(records) {
   const el = document.getElementById('panel-urlaube');
   if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Urlaube erfasst.</div>'; return; }
-  el.innerHTML = records.slice().reverse().map(r => {
+  const sorted = records.slice().sort((a, b) => {
+    const dateA = a.fields.Start || String(a.fields.Jahr || '0');
+    const dateB = b.fields.Start || String(b.fields.Jahr || '0');
+    return dateA.localeCompare(dateB);
+  });
+  el.innerHTML = sorted.map(r => {
     const f = r.fields;
-    return `<div class="card">
+    const isSelected = selectedTripId === r.id;
+    return `<div class="card trip-card ${isSelected ? 'selected' : ''}" data-id="${r.id}" onclick="selectTrip('${r.id}')">
       <div class="card-title">${escapeHtml(f.Ort)} ${f.Jahr ? '· ' + f.Jahr : ''}</div>
       <div class="card-sub">${escapeHtml(f.Start || '')} ${f.Ende ? '– ' + escapeHtml(f.Ende) : ''} ${f.Land ? '· ' + escapeHtml(f.Land) : ''}</div>
+      ${f.Adresse ? `<div class="notes">🏠 ${escapeHtml(f.Adresse)}</div>` : ''}
       ${f.Fazit ? `<div class="notes"><strong>Fazit:</strong> ${escapeHtml(f.Fazit)}</div>` : ''}
       ${f['Naechstes Mal anders'] ? `<div class="notes"><strong>Naechstes Mal anders:</strong> ${escapeHtml(f['Naechstes Mal anders'])}</div>` : ''}
     </div>`;
@@ -316,7 +342,7 @@ function renderOrte(records, urlaube) {
   }</div>`;
   const cardsHtml = records.map(r => {
     const f = r.fields;
-    return `<div class="card" data-cat="${escapeHtml(f.Kategorie || '')}">
+    return `<div class="card" data-cat="${escapeHtml(f.Kategorie || '')}" data-trip="${(f.Urlaub && f.Urlaub[0]) || ''}">
       <div class="card-title">${escapeHtml(f.Name)}</div>
       <div class="badges">
         ${f.Kategorie ? `<span class="badge">${escapeHtml(f.Kategorie)}</span>` : ''}
@@ -326,6 +352,7 @@ function renderOrte(records, urlaube) {
       ${f.Notizen ? `<div class="notes">${escapeHtml(f.Notizen)}</div>` : ''}
       <div class="meta-row">
         ${tripName(f.Urlaub, urlaube) ? `<span>${escapeHtml(tripName(f.Urlaub, urlaube))}</span>` : ''}
+        ${f.Entfernung ? `<span>${escapeHtml(f.Entfernung)}</span>` : ''}
         ${f['Maps-Link'] ? `<a href="${escapeHtml(f['Maps-Link'])}" target="_blank">Karte öffnen ↗</a>` : ''}
       </div>
     </div>`;
@@ -344,7 +371,7 @@ function renderRestaurants(records, urlaube) {
   }</div>`;
   const cardsHtml = records.map(r => {
     const f = r.fields;
-    return `<div class="card" data-cat="${escapeHtml(f.Kueche || '')}">
+    return `<div class="card" data-cat="${escapeHtml(f.Kueche || '')}" data-trip="${(f.Urlaub && f.Urlaub[0]) || ''}">
       <div class="card-title">${escapeHtml(f.Name)}</div>
       <div class="badges">
         ${f.Kueche ? `<span class="badge">${escapeHtml(f.Kueche)}</span>` : ''}
@@ -374,7 +401,7 @@ function renderEinkaufen(records) {
   });
   el.innerHTML = sorted.map(r => {
     const f = r.fields;
-    return `<div class="card">
+    return `<div class="card" data-trip="${(f.Urlaub && f.Urlaub[0]) || ''}">
       <div class="card-title">${escapeHtml(f.Name)} ${f.Favorit ? '⭐' : ''}</div>
       <div class="badges">
         ${f.Typ ? `<span class="badge">${escapeHtml(f.Typ)}</span>` : ''}
@@ -443,7 +470,7 @@ function renderAbendessen(records) {
   const cardsHtml = records.map(r => {
     const f = r.fields;
     const catList = (f.Kategorien || []).join('||');
-    return `<div class="card" data-cat="${escapeHtml(catList)}">
+    return `<div class="card" data-cat="${escapeHtml(catList)}" data-trip="${(f.Urlaub && f.Urlaub[0]) || ''}">
       <div class="card-title">${escapeHtml(f.Titel)}</div>
       <div class="badges">
         ${(f.Kategorien || []).map(c => `<span class="badge">${escapeHtml(c)}</span>`).join('')}
@@ -465,6 +492,8 @@ function renderAbendessen(records) {
   wireChips(el, 'abendessenCards');
 }
 
+let selectedTripId = null;
+
 const activeChipFilter = {};
 
 function wireChips(container, targetId) {
@@ -480,27 +509,62 @@ function wireChips(container, targetId) {
   });
 }
 
+function cardPasses(card, filter, search) {
+  const cardCats = (card.dataset.cat || '').split('||');
+  const catMatch = !filter || filter === 'all' || cardCats.includes(filter);
+  const textMatch = !search || card.textContent.toLowerCase().includes(search);
+  const tripMatch = !selectedTripId || card.dataset.trip === undefined || card.dataset.trip === '' || card.dataset.trip === selectedTripId;
+  return catMatch && textMatch && tripMatch;
+}
+
 function applyFiltersTo(targetId) {
   const container = document.getElementById(targetId);
   if (!container) return;
   const filter = activeChipFilter[targetId] || 'all';
   const search = (document.getElementById('searchBox').value || '').trim().toLowerCase();
   container.querySelectorAll('.card').forEach(card => {
-    const cardCats = (card.dataset.cat || '').split('||');
-    const catMatch = filter === 'all' || cardCats.includes(filter);
-    const textMatch = !search || card.textContent.toLowerCase().includes(search);
-    card.style.display = (catMatch && textMatch) ? '' : 'none';
+    card.style.display = cardPasses(card, filter, search) ? '' : 'none';
   });
 }
 
 function applySearch() {
   ['orteCards', 'restCards', 'abendessenCards'].forEach(applyFiltersTo);
   const search = (document.getElementById('searchBox').value || '').trim().toLowerCase();
-  document.querySelectorAll('#panel-einkaufen .card, #panel-urlaube .card').forEach(card => {
+  document.querySelectorAll('#panel-einkaufen .card').forEach(card => {
+    card.style.display = cardPasses(card, null, search) ? '' : 'none';
+  });
+  document.querySelectorAll('#panel-urlaube .card').forEach(card => {
     card.style.display = (!search || card.textContent.toLowerCase().includes(search)) ? '' : 'none';
   });
   document.querySelectorAll('#panel-packliste .item').forEach(item => {
     item.style.display = (!search || item.textContent.toLowerCase().includes(search)) ? '' : 'none';
+  });
+}
+
+function selectTrip(id) {
+  selectedTripId = (selectedTripId === id) ? null : id;
+  document.querySelectorAll('.trip-card').forEach(card => {
+    card.classList.toggle('selected', card.dataset.id === selectedTripId);
+  });
+  ['orteCards', 'restCards', 'abendessenCards'].forEach(applyFiltersTo);
+  const search = (document.getElementById('searchBox').value || '').trim().toLowerCase();
+  document.querySelectorAll('#panel-einkaufen .card').forEach(card => {
+    card.style.display = cardPasses(card, null, search) ? '' : 'none';
+  });
+  updateFilterBanner();
+}
+
+function updateFilterBanner() {
+  document.querySelectorAll('.filter-banner').forEach(b => b.remove());
+  if (!selectedTripId) return;
+  const selectedCard = document.querySelector(`.trip-card[data-id="${selectedTripId}"]`);
+  const label = selectedCard ? selectedCard.querySelector('.card-title').textContent : 'Urlaub';
+  const banners = `<div class="filter-banner"><span>Gefiltert nach: ${escapeHtml(label)}</span><button onclick="selectTrip('${selectedTripId}')">Zuruecksetzen ✕</button></div>`;
+  ['panel-orte', 'panel-restaurants', 'panel-einkaufen', 'panel-abendessen'].forEach(id => {
+    const panel = document.getElementById(id);
+    if (panel && panel.querySelector('.card')) {
+      panel.insertAdjacentHTML('afterbegin', banners);
+    }
   });
 }
 
