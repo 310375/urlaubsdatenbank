@@ -143,6 +143,21 @@
   .item-title.done { text-decoration: line-through; color: var(--muted); }
   .person-tag { font-size: 11px; color: var(--muted); }
 
+  .progress-wrap {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12.5px; color: var(--muted); margin-bottom: 6px;
+  }
+  .bar-bg { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 14px; }
+  .bar-fill { height: 100%; background: var(--accent); transition: width .2s; }
+  .card-check {
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .card-check input {
+    width: 19px; height: 19px; accent-color: var(--accent); flex-shrink: 0; margin-top: 2px;
+  }
+  .card.visited { opacity: 0.6; }
+  .card-title.visited-text { text-decoration: line-through; }
+
   .empty { text-align: center; color: var(--muted); font-size: 13.5px; padding: 40px 20px; }
   .loading { text-align: center; color: var(--muted); font-size: 13.5px; padding: 40px 20px; }
 
@@ -438,29 +453,63 @@ function renderOrte(records, urlaube) {
     const distB = matchB ? parseInt(matchB[0]) : 99999;
     return distA - distB;
   });
+
+  const ORTE_STORAGE_KEY = 'urlaubsdb_orte_besucht';
+  let besucht = {};
+  try { besucht = JSON.parse(localStorage.getItem(ORTE_STORAGE_KEY)) || {}; } catch (e) {}
+  const besuchtCount = records.filter(r => besucht[r.id]).length;
+
+  const progressHtml = `
+    <div class="progress-wrap">
+      <span>Besucht</span>
+      <span id="orteProgressLabel">${besuchtCount} von ${records.length}</span>
+    </div>
+    <div class="bar-bg"><div class="bar-fill" id="orteProgressBar" style="width:${Math.round((besuchtCount / records.length) * 100)}%"></div></div>`;
+
   const cats = [...new Set(records.map(r => r.fields.Kategorie).filter(Boolean))];
   const chipsHtml = `<div class="chips"><div class="chip active" data-filter="all">Alle</div>${
     cats.map(c => `<div class="chip" data-filter="${escapeHtml(c)}">${escapeHtml(c)}</div>`).join('')
   }</div>`;
   const cardsHtml = records.map(r => {
     const f = r.fields;
-    return `<div class="card" data-cat="${escapeHtml(f.Kategorie || '')}" data-trip="${(f.Urlaub && f.Urlaub[0]) || ''}">
-      <div class="card-title">${escapeHtml(f.Name)}</div>
-      <div class="badges">
-        ${f.Kategorie ? `<span class="badge">${escapeHtml(f.Kategorie)}</span>` : ''}
-        ${f.Bewertung ? `<span class="stars">${starString(f.Bewertung)}</span>` : ''}
-        ${f.Rabatt ? `<span class="badge gold">${escapeHtml(f.Rabatt)}</span>` : ''}
-      </div>
-      ${f.Notizen ? `<div class="notes">${escapeHtml(f.Notizen)}</div>` : ''}
-      <div class="meta-row">
-        ${tripName(f.Urlaub, urlaube) ? `<span>${escapeHtml(tripName(f.Urlaub, urlaube))}</span>` : ''}
-        ${f.Entfernung ? `<span>${escapeHtml(f.Entfernung)}</span>` : ''}
-        ${f['Maps-Link'] ? `<a href="${escapeHtml(f['Maps-Link'])}" target="_blank">Karte öffnen ↗</a>` : ''}
+    const isVisited = !!besucht[r.id];
+    return `<div class="card ${isVisited ? 'visited' : ''}" data-cat="${escapeHtml(f.Kategorie || '')}" data-trip="${(f.Urlaub && f.Urlaub[0]) || ''}" data-id="${r.id}">
+      <div class="card-check">
+        <input type="checkbox" class="orte-checkbox" ${isVisited ? 'checked' : ''}>
+        <div style="flex:1">
+          <div class="card-title ${isVisited ? 'visited-text' : ''}">${escapeHtml(f.Name)}</div>
+          <div class="badges">
+            ${f.Kategorie ? `<span class="badge">${escapeHtml(f.Kategorie)}</span>` : ''}
+            ${f.Bewertung ? `<span class="stars">${starString(f.Bewertung)}</span>` : ''}
+            ${f.Rabatt ? `<span class="badge gold">${escapeHtml(f.Rabatt)}</span>` : ''}
+          </div>
+          ${f.Notizen ? `<div class="notes">${escapeHtml(f.Notizen)}</div>` : ''}
+          <div class="meta-row">
+            ${tripName(f.Urlaub, urlaube) ? `<span>${escapeHtml(tripName(f.Urlaub, urlaube))}</span>` : ''}
+            ${f.Entfernung ? `<span>${escapeHtml(f.Entfernung)}</span>` : ''}
+            ${f['Maps-Link'] ? `<a href="${escapeHtml(f['Maps-Link'])}" target="_blank" onclick="event.stopPropagation()">Karte öffnen ↗</a>` : ''}
+          </div>
+        </div>
       </div>
     </div>`;
   }).join('');
-  el.innerHTML = chipsHtml + `<div id="orteCards">${cardsHtml}</div>`;
+  el.innerHTML = progressHtml + chipsHtml + `<div id="orteCards">${cardsHtml}</div>`;
   wireChips(el, 'orteCards');
+
+  el.querySelectorAll('.orte-checkbox').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', () => {
+      const card = cb.closest('.card');
+      const id = card.dataset.id;
+      besucht[id] = cb.checked;
+      try { localStorage.setItem(ORTE_STORAGE_KEY, JSON.stringify(besucht)); } catch (e) {}
+      card.classList.toggle('visited', cb.checked);
+      card.querySelector('.card-title').classList.toggle('visited-text', cb.checked);
+      const newCount = records.filter(r => besucht[r.id]).length;
+      document.getElementById('orteProgressLabel').textContent = `${newCount} von ${records.length}`;
+      document.getElementById('orteProgressBar').style.width = Math.round((newCount / records.length) * 100) + '%';
+    });
+  });
 }
 
 function renderRestaurants(records, urlaube) {
