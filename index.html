@@ -180,12 +180,12 @@
 
 <div id="setupScreen" class="setup" style="display:none">
   <h2>Zugang einrichten</h2>
-  <p>Einmalig pro Gerät: Trage deinen Airtable-Lese-Token und die Base ID ein. Beides wird nur lokal in diesem Browser gespeichert, nirgendwo sonst.</p>
+  <p>Einmalig pro Gerät: Trage deinen Airtable-Lese-Token und die Base ID ein. Beides wird nur lokal in diesem Browser gespeichert, nirgendwo sonst. Daten werden danach ausschliesslich abgerufen, wenn du oben auf 🔄 tippst (Schonung des Airtable-Nutzungslimits).</p>
   <label>Personal Access Token (nur lesend)</label>
   <input id="setupToken" type="password" placeholder="pat...">
   <label>Base ID</label>
   <input id="setupBaseId" type="text" placeholder="appXXXXXXXXXXXXXX">
-  <button onclick="saveCredentials()">Speichern & laden</button>
+  <button onclick="saveCredentials()">Speichern</button>
   <div class="err" id="setupErr"></div>
 </div>
 
@@ -197,7 +197,7 @@
         <p id="tripSub">Lade...</p>
       </div>
       <div style="display:flex">
-        <button class="reset-btn" onclick="init()" title="Aktualisieren" style="margin-right:6px">🔄</button>
+        <button class="reset-btn" id="refreshBtn" onclick="refreshActiveTab()" title="Aktiven Tab von Airtable laden" style="margin-right:6px">🔄</button>
         <button class="reset-btn" onclick="resetCredentials()" title="Zugangsdaten zuruecksetzen">⚙</button>
       </div>
     </div>
@@ -214,6 +214,7 @@
 
   <div class="search-wrap">
     <input id="searchBox" type="search" placeholder="🔍 Suchen..." oninput="applySearch()">
+    <div id="lastUpdated" style="font-size:11.5px;color:#C7D6DE;margin-top:6px">Noch nicht geladen</div>
   </div>
 
   <main id="main">
@@ -288,7 +289,119 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-async function init() {
+const TABLES = {
+  urlaube: 'Urlaube',
+  orte: 'Orte & Aktivitaeten',
+  restaurants: 'Restaurants',
+  einkaufen: 'Einkaufen',
+  abendessen: 'Abendessen-Ideen',
+  packliste: 'Packliste-Vorlage'
+};
+const DATA_PREFIX = 'urlaubsdb_data_';
+
+function loadCache(tabKey) {
+  try {
+    const raw = localStorage.getItem(DATA_PREFIX + tabKey);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+
+function saveCache(tabKey, records) {
+  try {
+    localStorage.setItem(DATA_PREFIX + tabKey, JSON.stringify({ records, fetchedAt: new Date().toISOString() }));
+  } catch (e) {}
+}
+
+function formatFetchedAt(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}. ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderTab(tabKey) {
+  const cache = loadCache(tabKey);
+  const records = cache ? cache.records : null;
+  const urlaubeCache = loadCache('urlaube');
+  const urlaube = urlaubeCache ? urlaubeCache.records : [];
+
+  if (tabKey === 'urlaube') renderUrlaube(records);
+  if (tabKey === 'orte') renderOrte(records, urlaube);
+  if (tabKey === 'restaurants') renderRestaurants(records, urlaube);
+  if (tabKey === 'einkaufen') renderEinkaufen(records);
+  if (tabKey === 'abendessen') renderAbendessen(records);
+  if (tabKey === 'packliste') renderPackliste(records);
+
+  updateLastUpdatedLabel(tabKey);
+  updateHeaderFromCache();
+}
+
+function updateLastUpdatedLabel(tabKey) {
+  const cache = loadCache(tabKey);
+  const el = document.getElementById('lastUpdated');
+  if (!el) return;
+  el.textContent = cache ? `Stand: ${formatFetchedAt(cache.fetchedAt)}` : 'Noch nicht geladen';
+}
+
+function updateHeaderFromCache() {
+  const urlaubeCache = loadCache('urlaube');
+  const urlaube = urlaubeCache ? urlaubeCache.records : [];
+  if (!urlaube.length) {
+    document.getElementById('tripTitle').textContent = 'Urlaubsdatenbank';
+    document.getElementById('tripSub').textContent = urlaubeCache ? '0 Urlaub(e) in der Datenbank' : 'Noch keine Daten geladen';
+    return;
+  }
+  const sortedTrips = urlaube.slice().sort((a, b) => {
+    const dateA = a.fields.Start || String(a.fields.Jahr || '0');
+    const dateB = b.fields.Start || String(b.fields.Jahr || '0');
+    return dateA.localeCompare(dateB);
+  });
+  const highlight = sortedTrips[sortedTrips.length - 1];
+  document.getElementById('tripTitle').textContent = highlight.fields.Ort || 'Urlaubsdatenbank';
+  const jahr = highlight.fields.Jahr || '';
+  const today = new Date().toISOString().slice(0, 10);
+  const label = (highlight.fields.Start && highlight.fields.Start > today) ? 'naechster' : 'zuletzt';
+  document.getElementById('tripSub').textContent = `${urlaube.length} Urlaub(e) in der Datenbank · ${label} ${jahr}`;
+}
+
+function getActiveTabKey() {
+  const activeTab = document.querySelector('.tab.active');
+  return activeTab ? activeTab.dataset.target : 'urlaube';
+}
+
+async function refreshActiveTab() {
+  const creds = getCredentials();
+  if (!creds) return;
+  const tabKey = getActiveTabKey();
+  const tableName = TABLES[tabKey];
+  const btn = document.getElementById('refreshBtn');
+  const originalText = btn.textContent;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+
+  try {
+    const records = await airtableGetAll(creds.baseId, creds.token, tableName);
+    saveCache(tabKey, records);
+    renderTab(tabKey);
+  } catch (err) {
+    let hint = 'Pruefe Token und Base ID.';
+    if (String(err.message).includes('401')) {
+      hint = 'HTTP 401: Token oder Base ID pruefen (Zahnrad-Symbol).';
+    }
+    document.getElementById('panel-' + tabKey).innerHTML =
+      `<div class="empty">Fehler: ${escapeHtml(err.message)}<br><br>${hint}</div>`;
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
+function renderAllFromCache() {
+  Object.keys(TABLES).forEach(renderTab);
+}
+
+function init() {
   const creds = getCredentials();
   if (!creds) {
     document.getElementById('setupScreen').style.display = 'block';
@@ -297,55 +410,13 @@ async function init() {
   }
   document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-
-  const { token, baseId } = creds;
-
-  try {
-    const [urlaube, orte, restaurants, einkaufen, abendessen, packliste] = await Promise.all([
-      airtableGetAll(baseId, token, 'Urlaube'),
-      airtableGetAll(baseId, token, 'Orte & Aktivitaeten'),
-      airtableGetAll(baseId, token, 'Restaurants'),
-      airtableGetAll(baseId, token, 'Einkaufen'),
-      airtableGetAll(baseId, token, 'Abendessen-Ideen'),
-      airtableGetAll(baseId, token, 'Packliste-Vorlage')
-    ]);
-
-    renderUrlaube(urlaube);
-    renderOrte(orte, urlaube);
-    renderRestaurants(restaurants, urlaube);
-    renderEinkaufen(einkaufen);
-    renderAbendessen(abendessen);
-    renderPackliste(packliste);
-
-    const sortedTrips = urlaube.slice().sort((a, b) => {
-      const dateA = a.fields.Start || String(a.fields.Jahr || '0');
-      const dateB = b.fields.Start || String(b.fields.Jahr || '0');
-      return dateA.localeCompare(dateB);
-    });
-    const highlight = sortedTrips[sortedTrips.length - 1];
-    if (highlight) {
-      document.getElementById('tripTitle').textContent = highlight.fields.Ort || 'Urlaubsdatenbank';
-      const jahr = highlight.fields.Jahr || '';
-      const today = new Date().toISOString().slice(0, 10);
-      const label = (highlight.fields.Start && highlight.fields.Start > today) ? 'naechster' : 'zuletzt';
-      document.getElementById('tripSub').textContent = `${urlaube.length} Urlaub(e) in der Datenbank · ${label} ${jahr}`;
-    } else {
-      document.getElementById('tripSub').textContent = `${urlaube.length} Urlaub(e) in der Datenbank`;
-    }
-  } catch (err) {
-    document.getElementById('tripSub').textContent = 'Fehler beim Laden';
-    let hint = 'Pruefe Token und Base ID.';
-    if (String(err.message).includes('401')) {
-      hint = 'HTTP 401 bedeutet: Token oder Base ID sind falsch, vertauscht, oder der Token wurde nicht korrekt kopiert. Auf das Zahnrad-Symbol oben rechts tippen, um sie neu einzutragen.';
-    }
-    document.querySelectorAll('.panel').forEach(p => {
-      p.innerHTML = `<div class="empty">Fehler: ${escapeHtml(err.message)}<br><br>${hint}</div>`;
-    });
-  }
+  renderAllFromCache();
+  updateLastUpdatedLabel(getActiveTabKey());
 }
 
 function renderUrlaube(records) {
   const el = document.getElementById('panel-urlaube');
+  if (records === null) { el.innerHTML = '<div class="empty">Noch nicht geladen. Oben auf 🔄 tippen.</div>'; return; }
   if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Urlaube erfasst.</div>'; return; }
   const sorted = records.slice().sort((a, b) => {
     const dateA = a.fields.Start || String(a.fields.Jahr || '0');
@@ -372,70 +443,6 @@ function renderUrlaube(records) {
   el.innerHTML = cardsHtml;
 }
 
-const GEOCODE_CACHE_KEY = 'urlaubsdb_geocode_cache';
-
-function getGeocodeCache() {
-  try { return JSON.parse(localStorage.getItem(GEOCODE_CACHE_KEY)) || {}; } catch (e) { return {}; }
-}
-
-function saveGeocodeCache(cache) {
-  try { localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
-}
-
-async function geocode(query) {
-  const cache = getGeocodeCache();
-  if (cache[query]) return cache[query];
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
-  const res = await fetch(url, { headers: { 'Accept-Language': 'de' } });
-  const data = await res.json();
-  if (!data.length) return null;
-  const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-  cache[query] = coords;
-  saveGeocodeCache(cache);
-  return coords;
-}
-
-async function loadOverviewMap(trips) {
-  const withAddress = trips.filter(r => r.fields.Adresse || r.fields.Ort);
-  const points = [];
-
-  for (const r of withAddress) {
-    const f = r.fields;
-    const query = f.Adresse ? `${f.Adresse}, Danmark` : `${f.Ort}, Danmark`;
-    try {
-      const coords = await geocode(query);
-      if (coords) points.push({ ...coords, label: `${f.Ort}${f.Jahr ? ' · ' + f.Jahr : ''}` });
-    } catch (e) { /* einzelnen Punkt einfach auslassen bei Fehler */ }
-    await new Promise(resolve => setTimeout(resolve, 1100)); // Nominatim: max 1 Anfrage/Sekunde
-  }
-
-  const loadingEl = document.getElementById('overviewMapLoading');
-  if (!loadingEl) return; // Tab wurde inzwischen gewechselt / neu gerendert
-  if (!points.length) { loadingEl.textContent = 'Karte konnte nicht geladen werden.'; return; }
-
-  const mapDiv = document.createElement('div');
-  mapDiv.id = 'overviewMap';
-  loadingEl.replaceWith(mapDiv);
-
-  const map = L.map('overviewMap', { scrollWheelZoom: false }).setView([points[0].lat, points[0].lng], 6);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
-    maxZoom: 19
-  }).addTo(map);
-
-  const bounds = [];
-  points.forEach(p => {
-    const marker = L.circleMarker([p.lat, p.lng], {
-      radius: 7, fillColor: '#D8B87F', color: '#16425B', weight: 2, fillOpacity: 1
-    }).addTo(map);
-    marker.bindPopup(p.label);
-    bounds.push([p.lat, p.lng]);
-  });
-  if (bounds.length > 1) {
-    map.fitBounds(bounds, { padding: [24, 24] });
-  }
-}
-
 function tripName(urlaubLinks, urlaube) {
   if (!urlaubLinks || !urlaubLinks.length) return '';
   const id = urlaubLinks[0];
@@ -445,6 +452,7 @@ function tripName(urlaubLinks, urlaube) {
 
 function renderOrte(records, urlaube) {
   const el = document.getElementById('panel-orte');
+  if (records === null) { el.innerHTML = '<div class="empty">Noch nicht geladen. Oben auf 🔄 tippen.</div>'; return; }
   if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Ausflugsziele erfasst.</div>'; return; }
   records = records.slice().sort((a, b) => {
     const matchA = (a.fields.Entfernung || '').match(/\d+/);
@@ -514,6 +522,7 @@ function renderOrte(records, urlaube) {
 
 function renderRestaurants(records, urlaube) {
   const el = document.getElementById('panel-restaurants');
+  if (records === null) { el.innerHTML = '<div class="empty">Noch nicht geladen. Oben auf 🔄 tippen.</div>'; return; }
   if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Restaurants erfasst.</div>'; return; }
   records = records.slice().sort((a, b) => (b.fields.Bewertung || 0) - (a.fields.Bewertung || 0));
   const cuisines = [...new Set(records.map(r => r.fields.Kueche).filter(Boolean))];
@@ -544,6 +553,7 @@ function renderRestaurants(records, urlaube) {
 
 function renderEinkaufen(records) {
   const el = document.getElementById('panel-einkaufen');
+  if (records === null) { el.innerHTML = '<div class="empty">Noch nicht geladen. Oben auf 🔄 tippen.</div>'; return; }
   if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Einkaufsquellen erfasst.</div>'; return; }
   const sorted = records.slice().sort((a, b) => {
     const favDiff = (b.fields.Favorit ? 1 : 0) - (a.fields.Favorit ? 1 : 0);
@@ -572,6 +582,7 @@ function renderEinkaufen(records) {
 
 function renderPackliste(records) {
   const el = document.getElementById('panel-packliste');
+  if (records === null) { el.innerHTML = '<div class="empty">Noch nicht geladen. Oben auf 🔄 tippen.</div>'; return; }
   if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Packliste erfasst.</div>'; return; }
 
   const STORAGE_KEY = 'urlaubsdb_packliste_checked';
@@ -613,6 +624,7 @@ function renderPackliste(records) {
 
 function renderAbendessen(records) {
   const el = document.getElementById('panel-abendessen');
+  if (records === null) { el.innerHTML = '<div class="empty">Noch nicht geladen. Oben auf 🔄 tippen.</div>'; return; }
   if (!records.length) { el.innerHTML = '<div class="empty">Noch keine Abendessen-Ideen erfasst.</div>'; return; }
   const cats = [...new Set(records.flatMap(r => r.fields.Kategorien || []))];
   const chipsHtml = `<div class="chips"><div class="chip active" data-filter="all">Alle</div>${
@@ -725,6 +737,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById('panel-' + tab.dataset.target).classList.add('active');
+    updateLastUpdatedLabel(tab.dataset.target);
   });
 });
 
