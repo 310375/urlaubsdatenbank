@@ -2,15 +2,12 @@
 
 Familien Einkaufsmanager
 
-## Funktionsstand 1.4
+## Funktionsstand 1.5
 
-Neu:
-- mobile Darstellung deutlich kompakter und ohne horizontales Abschneiden
-- Urlaubszeitraum mit Ziel, Abreise und Rückkehr
-- Urlaubsmodus mit angepassten Einkaufshinweisen
-- Reiseartikel automatisch ergänzen
-- Standortfreigabe auf Wunsch
-- aktuelle Wetterdaten und 3-Tage-Prognose über Open-Meteo
-- wetterabhängige Einkaufsvorschläge
-
-Standort wird nur nach einem aktiven Klick abgefragt. Die Freigabe kann im iPhone jederzeit in den Website-Einstellungen widerrufen werden.
+Änderungen:
+- Standard-Monatsbudget auf 900 Euro gesetzt
+- Schaltfläche zum Zurücksetzen des Budgets auf 900 Euro
+- mobile Darstellung weiter verbessert
+- Karten, Buttons und Navigation auf kleinen iPhones kompakter
+- lange Texte und Beträge werden nicht mehr abgeschnitten
+- bestehende Daten aus Version 1.4 werden übernommen

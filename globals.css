@@ -94,3 +94,159 @@ main,.topbarInner,.card,.welcome,.pageHead,.sectionHead,.hero,.metric,.shoppingR
   .weatherDetails{grid-template-columns:1fr}
   .weatherDetails .secondary{grid-column:auto}
 }
+
+
+/* Einkaufsheld 1.5: mobile Feinschliff */
+body{
+  -webkit-text-size-adjust:100%;
+  text-rendering:optimizeLegibility;
+}
+.topbar{
+  position:relative;
+}
+.topbarInner{
+  width:100%;
+}
+main{
+  width:100%;
+}
+.card{
+  width:100%;
+}
+.hero>div:first-child,
+.metric,
+.quickGrid button,
+.shoppingRow>div,
+.stockMain,
+.receiptRow>div:nth-child(2),
+.mealRow>div:nth-child(2){
+  min-width:0;
+}
+.heroValue,
+.metric strong,
+.receiptRow>strong:last-child{
+  font-variant-numeric:tabular-nums;
+}
+.pageHead{
+  overflow:hidden;
+}
+.pageHead>div{
+  min-width:0;
+}
+.pageHead .primary{
+  max-width:100%;
+}
+.shoppingRow strong,
+.shoppingRow small,
+.stockMain strong,
+.stockMain small,
+.receiptRow strong,
+.receiptRow small,
+.mealRow strong,
+.mealRow small{
+  overflow-wrap:anywhere;
+}
+.budgetSettings .secondary{
+  margin-top:2px;
+}
+@media(max-width:650px){
+  .topbar{
+    padding-top:calc(env(safe-area-inset-top) + 12px);
+  }
+  .topbarInner{
+    gap:10px;
+  }
+  .roundButton{
+    flex:0 0 42px;
+    width:42px;
+    height:42px;
+  }
+  main{
+    padding-left:10px;
+    padding-right:10px;
+  }
+  .card{
+    border-radius:18px;
+    padding:15px;
+  }
+  .welcome{
+    margin-bottom:12px;
+  }
+  .welcome .status{
+    max-width:100%;
+    white-space:normal;
+  }
+  .hero{
+    align-items:flex-start;
+  }
+  .heroValue{
+    font-size:clamp(27px,9vw,34px);
+  }
+  .metricGrid{
+    gap:8px;
+  }
+  .metric{
+    padding:14px;
+  }
+  .quickGrid{
+    gap:8px;
+  }
+  .quickGrid button{
+    display:grid;
+    grid-template-columns:34px minmax(0,1fr);
+    grid-template-rows:auto auto;
+    column-gap:10px;
+    align-items:center;
+  }
+  .quickGrid button>span{
+    grid-row:1/3;
+    margin:0;
+  }
+  .quickGrid button strong,
+  .quickGrid button small{
+    min-width:0;
+  }
+  .shoppingRow{
+    gap:8px;
+    padding:12px 10px;
+  }
+  .stockRow{
+    gap:9px;
+  }
+  .receiptRow,
+  .mealRow{
+    gap:9px;
+  }
+  .bottomNav{
+    scrollbar-width:none;
+  }
+  .bottomNav::-webkit-scrollbar{
+    display:none;
+  }
+}
+@media(max-width:360px){
+  .topbar h1{
+    font-size:23px;
+  }
+  .subline{
+    font-size:10px;
+  }
+  .card{
+    padding:13px;
+  }
+  .metricGrid{
+    grid-template-columns:1fr;
+  }
+  .metricGrid .metric:last-child{
+    grid-column:auto;
+  }
+  .twoColumns{
+    grid-template-columns:1fr;
+  }
+  .shoppingRow{
+    grid-template-columns:22px minmax(0,1fr) 28px;
+  }
+  .shoppingRow .badge{
+    max-width:100%;
+  }
+}

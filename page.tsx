@@ -90,7 +90,7 @@ const categories = [
 const units = ["Stück", "Packung", "Flasche", "Kiste", "kg", "g", "l", "ml", "Glas"];
 
 const seed: AppData = {
-  budget: 700,
+  budget: 900,
   shopping: [
     { id: 1, name: "Milch", category: "Molkerei", quantity: 2, unit: "Packung", priority: "standard", done: false, source: "standard" },
     { id: 2, name: "Griechischer Joghurt", category: "Molkerei", quantity: 1, unit: "Packung", priority: "standard", done: false, source: "standard" },
@@ -223,7 +223,7 @@ export default function Home() {
   const [weatherStatus, setWeatherStatus] = useState("Standort noch nicht freigegeben.");
 
   useEffect(() => {
-    const keys = ["einkaufsheld-v14", "einkaufsheld-v13", "einkaufsheld-v12", "einkaufsheld-v03"];
+    const keys = ["einkaufsheld-v15", "einkaufsheld-v14", "einkaufsheld-v13", "einkaufsheld-v12", "einkaufsheld-v03"];
     const raw = keys.map((key) => localStorage.getItem(key)).find(Boolean);
     try {
       setData(migrate(JSON.parse(raw ?? "null")));
@@ -238,7 +238,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (loaded) localStorage.setItem("einkaufsheld-v14", JSON.stringify(data));
+    if (loaded) localStorage.setItem("einkaufsheld-v15", JSON.stringify(data));
   }, [data, loaded]);
 
   useEffect(() => {
@@ -803,8 +803,9 @@ export default function Home() {
         {tab === "mehr" && (
           <>
             <PageHead eyebrow="Einstellungen" title="Einkaufsheld" />
-            <section className="card formCard">
+            <section className="card formCard budgetSettings">
               <label>Monatsbudget<input type="number" min="0" step="10" value={data.budget} onChange={(event) => setData((current) => ({ ...current, budget: Number(event.target.value) }))} /></label>
+              <button className="secondary full" type="button" onClick={() => setData((current) => ({ ...current, budget: 900 }))}>Budget auf 900 € setzen</button>
             </section>
             <section className="card">
               <div className="sectionHead">
@@ -835,7 +836,7 @@ export default function Home() {
             </section>
             <section className="card infoCard">
               <p className="eyebrow">Einkaufsheld 1.0</p>
-              <h2>Funktionsstand 1.4</h2>
+              <h2>Funktionsstand 1.5</h2>
               <p>Dashboard, Einkaufsliste, Vorrat, Belege, Wochenplan, Familie und Auswertung arbeiten lokal auf diesem Gerät.</p>
             </section>
           </>
